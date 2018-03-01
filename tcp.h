@@ -1,6 +1,7 @@
 #pragma once
 #include <WinSock2.h>
 #include <Ws2tcpip.h>
+#include <string>
 #include "type.h"
 #include "define.h"
 #include "socket.h"
@@ -9,6 +10,12 @@
 	#include <iostream>
 	using namespace std;
 #endif
+
+#ifndef RECV_MAX_SIZE
+	#define RECV_MAX_SIZE 65000
+#endif
+
+using std::string;
 
 namespace Tribal {
 	static uint8 localhost[] = LOCALHOST;
@@ -34,7 +41,7 @@ namespace Tribal {
 			closesocket(m_sock);
 		}
 
-		uint32 SendData(ccData data, cuint32 len) override {
+		int32 SendData(ccData data, const size_t len) override {
 #ifdef _DEBUG
 			std::cout << "[+] TCPData Send... - " << len << std::endl;
 			std::cout << data << std::endl;
@@ -42,7 +49,7 @@ namespace Tribal {
 			return send(m_sock, data, len, 0);
 		}
 
-		uint32 RecvData(cData data, cuint32 max) override {
+		int32 RecvData(cData data, const size_t max) override {
 #ifdef _DEBUG
 			std::cout << "[+] TCPData Recv... - " << max << std::endl;
 			std::cout << data << std::endl;
@@ -64,17 +71,19 @@ namespace Tribal {
 		}
 
 		// send override
-		friend TCPSocket& operator <<(TCPSocket& t_socket, ccData data) {
-			//t_socket.m_ptr->SendData(data, strlen(data));
-			t_socket.SendData(data, strlen(data));
+		friend TCPSocket& operator <<(TCPSocket& t_socket, string data) {
+			t_socket.SendData(data.c_str(), data.length());
 
 			return t_socket;
 		}
 
 		// recv override
-		friend TCPSocket& operator >>(TCPSocket& t_socket, cData data) {
-			//t_socket.m_ptr->RecvData(data, 16);
-			t_socket.RecvData(data, 16);
+		friend TCPSocket& operator >>(TCPSocket& t_socket, string& data) {
+			int32 recved_size = 0;	// for -1 check
+
+			data.resize(RECV_MAX_SIZE);
+			recved_size = t_socket.RecvData((cData)data.data(), RECV_MAX_SIZE);
+			data.resize(recved_size > 0 ? recved_size : 0);
 
 			return t_socket;
 		}

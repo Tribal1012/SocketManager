@@ -156,8 +156,8 @@ namespace Tribal {
 	protected:
 		virtual SOCKET CreateSocket() = 0;
 		virtual void CloseSocket() = 0;
-		virtual uint32 SendData(ccData data, cuint32 len) = 0;
-		virtual uint32 RecvData(cData data, cuint32 max) = 0;
+		virtual int32 SendData(ccData data, const size_t len) = 0;
+		virtual int32 RecvData(cData data, const size_t max) = 0;
 
 		Socket() {}
 

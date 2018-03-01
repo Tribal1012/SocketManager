@@ -5,7 +5,7 @@
 using std::vector;
 
 int main(void) {
-	char buf[256] = { 0 };
+	string sBuf;
 	_TCPSocket ts = CreateTCPServer(18502);            // Allocate TCPServer object that have a socket.
 	_TCPSocket tc = CreateTCPClient((IP_ADDR)LOCALHOST, 18502); // Allocate TCPClient object that have a socket.
 
@@ -16,8 +16,8 @@ int main(void) {
 	ts << "123";						// Send.
 
 	std::cout << "Recv Test" << std::endl;
-	ts >> buf;							// Receive
-	std::cout << buf << std::endl;
+	ts >> sBuf;							// Receive
+	std::cout << sBuf << std::endl;
 
 	return 0;
 }
