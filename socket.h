@@ -1,10 +1,17 @@
 #pragma once
+#pragma comment(lib, "ws2_32.lib")
 #include <WinSock2.h>
 #include <vector>
 #include "type.h"
 #include "define.h"
 
 using std::vector;
+
+#define LOCALHOST "127.0.0.1"
+#define ADDR_LEN  16
+
+typedef puint8 IP_ADDR;
+typedef uint16 PORT_ADDR;
 
 namespace Tribal {
 	/*
@@ -190,10 +197,25 @@ namespace Tribal {
 			return m_pInstance;
 		}
 
+		/* for server object */
 		template <typename T>
-		T* CreateObject() {
-			return new T();
+		T& CreateServer(PORT_ADDR port) {
+			// It don't return pointer type.
+			return *(new T(port));
 		}
+
+		/* for client object */
+		template <typename T>
+		T& CreateClient(IP_ADDR ip, PORT_ADDR port) {
+			// It don't return pointer type.
+			return *(new T(ip, port));
+		}
+
+		//template <typename T>
+		//T& CreateObject() {
+		//	// It don't return pointer type.
+		//	return *(new T());
+		//}
 	};
 	ObjectFactory* ObjectFactory::m_pInstance = nullptr;
 }
