@@ -166,6 +166,12 @@ namespace Tribal {
 
 		/* Repack SocketConfig's RegisterOption() */
 		Socket* SetOption(uint32 level, uint32 opt, void* value = null, uint32 len = 0) {
+			if ((value == null && len != 0) && (value != null && len == 0)){
+				fprintf(stderr, "[-] SetOption error, Please check value and len.\n");
+
+				return this;
+			}
+
 			/* should fetch the return value. */
 			m_sockconfig.RegisterOption(m_sock, level, opt, value, len);
 			
