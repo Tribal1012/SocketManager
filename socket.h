@@ -71,6 +71,9 @@ namespace Tribal {
 
 	class SocketConfig {
 	private:
+		static SocketConfig* m_pInstance;
+
+	private:
 		vector<SOCKET> m_sock;
 		vector<uint32> m_level;
 		vector<uint32> m_option;
@@ -78,43 +81,26 @@ namespace Tribal {
 		vector<uint32> m_len;
 
 	private:
-#define EMPTY_CHECK(x) { if(x.empty()) { ClearOption(); return false; } }
-#define SIZE_CHECK(a, b, c, d, e) { if(a.size() == b.size() == c.size() == d.size() == e.size()) { ClearOption(); return false; } }
-		bool Apply() {
-			EMPTY_CHECK(m_sock)
-			EMPTY_CHECK(m_level)
-			EMPTY_CHECK(m_option)
-			EMPTY_CHECK(m_value)
-			EMPTY_CHECK(m_len)
-			SIZE_CHECK(m_sock, m_level, m_option, m_value, m_len)
+		/* for Singleton pattern */
+		SocketConfig() {}
 
-			for (uint32 i = 0; i < m_sock.size(); i++) {
-				int result = 0;
-
-				result = setsockopt(m_sock.at(i), m_level.at(i), m_option.at(i), m_value.at(i), m_len.at(i));
-				if (result == -1) {
-					ClearOption();
-
-					return false;
-				}
-			}
-
-			ClearOption();
-
-			return true;
-		}
-
-		void ClearOption() {
-			m_sock.clear();
-			m_level.clear();
-			m_option.clear();
-			m_value.clear();
-			m_len.clear();
+		/* Callback function for clean Instance */
+		static void DestroyInstance() {
+			delete m_pInstance;
+			m_pInstance = NULL;
 		}
 
 	public:
-		SocketConfig() {}
 		~SocketConfig() {}
+
+		static SocketConfig* GetInstance() {
+			if (m_pInstance == null) {
+				m_pInstance = new SocketConfig();
+				atexit(DestroyInstance);
+			}
+
+			return m_pInstance;
+		}
 
 		SocketConfig* RegisterOption(SOCKET sock, uint32 level, uint32 opt, void* value, uint32 len) {
 			m_sock.push_back(sock);
@@ -126,14 +112,52 @@ namespace Tribal {
 			return this;
 		}
 
-		bool Execute() {
-			return Apply();
+#define EMPTY_CHECK(x) { if(x.empty()) { ResetOption(); return false; } }
+#define SIZE_CHECK(a, b, c, d, e) { if(!(a.size() == b.size() == c.size() == d.size() == e.size())) { ResetOption(); return false; } }
+		bool Apply() {
+			EMPTY_CHECK(m_sock)
+			EMPTY_CHECK(m_level)
+			EMPTY_CHECK(m_option)
+			EMPTY_CHECK(m_value)
+			EMPTY_CHECK(m_len)
+			SIZE_CHECK(m_sock, m_level, m_option, m_value, m_len)
+
+			for (uint32 i = 0; i < m_sock.size(); i++) {
+				int result = 0;
+
+#ifdef _DEBUG
+				SOCKET sock = m_sock.at(i);
+				int level = m_level.at(i);
+				int opt = m_option.at(i);
+				const char* val = m_value.at(i);
+				int len = m_len.at(i);
+				printf("[?] setsockopt(%x %d %d %x %d);", sock, level, opt, val, len);
+#endif
+				result = setsockopt(m_sock.at(i), m_level.at(i), m_option.at(i), m_value.at(i), m_len.at(i));
+				if (result == SOCKET_ERROR) {
+#ifdef _DEBUG
+					int error = WSAGetLastError();
+					printf("%d\n", error);
+#endif
+					//ResetOption();
+					//return false;
+				}
+			}
+
+			ResetOption();
+
+			return true;
 		}
 
-		void Reset() {
-			ClearOption();
+		void ResetOption() {
+			m_sock.clear();
+			m_level.clear();
+			m_option.clear();
+			m_value.clear();
+			m_len.clear();
 		}
 	};
+	SocketConfig* SocketConfig::m_pInstance = nullptr;
 
 	/*
 	define socket's type like TCP or UDP for CreateSocket()
@@ -148,7 +172,7 @@ namespace Tribal {
 	template <typename T>
 	class Socket {
 	private:
-		SocketConfig m_sockconfig;      // for handle setsockopt()
+		SocketConfig* m_sockconfig;      // for handle setsockopt()
 
 	protected:
 		SOCKET m_sock;					// Object Socket allocated socket.
@@ -159,7 +183,22 @@ namespace Tribal {
 		virtual int32 SendData(ccData data, const size_t len) = 0;
 		virtual int32 RecvData(cData data, const size_t max) = 0;
 
-		Socket() {}
+		Socket() {
+			m_sockconfig = SocketConfig::GetInstance();
+		}
+
+		/* Commit socket options with SocketConfig object using setsockopt(). */
+		bool ConfigCommit() { 
+			if (!m_sockconfig) return false;
+
+			bool result = m_sockconfig->Apply();
+			if (result) {
+				delete m_sockconfig;
+				m_sockconfig = null;
+			} else fprintf(stderr, "[-] Failed to commit socket option\n");
+
+			return  result;
+		}
 
 	public:
 		virtual ~Socket() {}
@@ -173,19 +212,20 @@ namespace Tribal {
 			}
 
 			/* should fetch the return value. */
-			m_sockconfig.RegisterOption(m_sock, level, opt, value, len);
+			if(m_sockconfig) m_sockconfig->RegisterOption(m_sock, level, opt, value, len);
+			else fprintf(stderr, "[-] It has been already commited.\n");
 			
 			return this;
 		}
 	};
 
-	class ObjectFactory {
+	class SocketFactory {
 	private:
-		static ObjectFactory* m_pInstance;			// return itself
+		static SocketFactory* m_pInstance;			// return itself
 
 	private:
-		ObjectFactory() {}
-		~ObjectFactory() {}
+		SocketFactory() {}
+		~SocketFactory() {}
 
 		// for clean Socket's Instance
 		static void DestroyInstance() {
@@ -194,9 +234,9 @@ namespace Tribal {
 		}
 
 	public:
-		static ObjectFactory* GetInstance() {
+		static SocketFactory* GetInstance() {
 			if (m_pInstance == null) {
-				m_pInstance = new ObjectFactory();
+				m_pInstance = new SocketFactory();
 				atexit(DestroyInstance);
 			}
 
@@ -223,5 +263,5 @@ namespace Tribal {
 		//	return *(new T());
 		//}
 	};
-	ObjectFactory* ObjectFactory::m_pInstance = nullptr;
+	SocketFactory* SocketFactory::m_pInstance = nullptr;
 }

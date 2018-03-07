@@ -196,8 +196,9 @@ namespace Tribal {
 			int32 result = 0;
 			uint32 clnt_sa_size = sizeof(sockaddr_in);
 
-			// Todo m_SockConfig
-
+			/* Commit registed socket option.*/
+			ConfigCommit();
+			
 			result = bind(m_sock, (sockaddr*)&m_sa, sizeof(sockaddr_in));
 			if (result == -1) {
 				return;
@@ -218,11 +219,11 @@ namespace Tribal {
 			if (m_clnt_sock == INVALID_SOCKET) {
 				int error = WSAGetLastError();
 
-				fprintf(stderr, "[-] Invalid clinet socket, because failed accept()\n");
-				fprintf(stderr, "[-] %d\n", error);
 				// 10014 : The system detected an invalid pointer address in attempting to use a pointer argument in a call.
 				// => Initailize clnt_sasize = sizeof(sockaddr_in) 
-
+				fprintf(stderr, "[-] Invalid clinet socket, because failed accept()\n");
+				fprintf(stderr, "[-] %d\n", error);
+				
 				return;
 			}
 		}
@@ -285,6 +286,6 @@ namespace Tribal {
 	#define _TCPSocket Tribal::TCPSocket&
 #endif
 
-/* This is macro that create TCPSocket object with ObjectFactory */
-#define CreateTCPServer Tribal::ObjectFactory::GetInstance()->CreateServer<Tribal::TCPServer>
-#define CreateTCPClient Tribal::ObjectFactory::GetInstance()->CreateClient<Tribal::TCPClient>
+/* This is macro that create TCPSocket object with SocketFactory */
+#define CreateTCPServer Tribal::SocketFactory::GetInstance()->CreateServer<Tribal::TCPServer>
+#define CreateTCPClient Tribal::SocketFactory::GetInstance()->CreateClient<Tribal::TCPClient>

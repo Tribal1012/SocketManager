@@ -9,7 +9,7 @@ int main(void) {
 	_TCPSocket ts = CreateTCPServer(18502);            // Allocate TCPServer object that have a socket.
 	_TCPSocket tc = CreateTCPClient((IP_ADDR)LOCALHOST, 18502); // Allocate TCPClient object that have a socket.
 
-	// ts.SetOption(1, 2);					// Option Setting.
+	ts.SetOption(SOL_SOCKET, SO_LINGER);					// Option Setting.
 	ts.Operate();							// listen.
 
 	std::cout << "Send Test" << std::endl;
