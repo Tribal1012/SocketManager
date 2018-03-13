@@ -13,61 +13,107 @@ using std::vector;
 typedef puint8 IP_ADDR;
 typedef uint16 PORT_ADDR;
 
+/*
+SocketOption is used setsockopt() function.
+(https://msdn.microsoft.com/en-us/library/windows/desktop/ms740476(v=vs.85).aspx).
+*/
+typedef enum _SocketOption {
+	Broadcast = 0,
+	Conditional_Accept,
+	Debug,
+	Linger,
+	DontLinger,
+	DontRoute,
+	KeepAlive,
+	OOBinLine,
+	RCVBUF,
+	SNDBUF,
+	ReuseAddr,
+	ExclusiveAddrUse,
+
+#ifdef SO_RCVTIME0
+	RCVTIME0,
+#endif
+#ifdef SO_SNDTIME0
+	SNDTIME0,
+#endif
+#ifdef SO_UPDATE_ACCEPT_CONTEXT
+	Update_Accept_Context,
+#endif
+
+	PVD_Config,
+	NoDelay = 0x10
+
+#ifdef NSPROTO_IPX
+	,
+	PType = 0x20,
+	FilterType,
+	StopFilterType,
+	DSType,
+	Extended_Address,
+	RecvHDR,
+	RCVBroadcast,
+	ImmeditatesPXACK
+#endif
+} SocketOption;
+#define SOCKOPTMASK 0x10
+
+
 namespace Tribal {
 	/*
-	SocketLevel used setsockopt() function.
-	(https://msdn.microsoft.com/en-us/library/windows/desktop/ms740476(v=vs.85).aspx).
-	*/
-	typedef enum _SocketLevel {
-		Socket_Level = SOL_SOCKET,
-		IPProto = IPPROTO_TCP
-#ifdef EXIST_IPX
-		,
-		NSProto = NSPROTO_IPX
+	    SocketLevel used setsockopt() function.
+	    (https://msdn.microsoft.com/en-us/library/windows/desktop/ms740476(v=vs.85).aspx).
+	 */
+	static uint32 SocketLevelList[0x10] = {
+		SOL_SOCKET, 
+		IPPROTO_TCP, 
+#ifdef NSPROTO_IPX
+		NSPROTO_IPX, 
 #endif
-	} SocketLevel;
-	/*
-	SocketOption is used setsockopt() function.
-	(https://msdn.microsoft.com/en-us/library/windows/desktop/ms740476(v=vs.85).aspx).
-	*/
-	typedef enum _SocketOption {
-		Broadcast = SO_BROADCAST,
-		Conditional_Accept = SO_CONDITIONAL_ACCEPT,
-		Debug = SO_DEBUG,
-		Linger = SO_LINGER,
-		DontLinger = SO_DONTLINGER,
-		DontRoute = SO_DONTROUTE,
-		KeepAlive = SO_KEEPALIVE,
-		OOBinLine = SO_OOBINLINE,
-		RCVBUF = SO_RCVBUF,
-		SNDBUF = SO_SNDBUF,
-		ReuseAddr = SO_REUSEADDR,
-		ExclusiveAddrUse = SO_EXCLUSIVEADDRUSE,
-
-#ifdef TIME0
-		RCVTIME0 = SO_RCVTIME0,
-		SNDTIME0 = SO_SNDTIME0,
+	};
+	
+	/* Offset = enum _SocketOption value */
+	static int SocketOptionList1[0x10] = {
+		SO_BROADCAST, 
+		SO_CONDITIONAL_ACCEPT, 
+		SO_DEBUG, 
+		SO_LINGER, 
+		SO_DONTLINGER, 
+		SO_DONTROUTE, 
+		SO_KEEPALIVE, 
+		SO_OOBINLINE, 
+		SO_RCVBUF, 
+		SO_SNDBUF, 
+		SO_REUSEADDR, 
+		SO_EXCLUSIVEADDRUSE, 
+#ifdef SO_RCVTIME0
+		SO_RCVTIME0,
 #endif
-
-#ifdef EXIST_ACCEPT_CONTEXT
-		Update_Accept_Context = SO_UPDATE_ACCEPT_CONTEXT,
+#ifdef SO_SNDTIME0
+		SO_SNDTIME0,
 #endif
-
-		PVD_Config = PVD_CONFIG,
-		NoDelay = TCP_NODELAY
-
-#ifdef EXIST_IPX
-		,
-		PType = IPX_PTYPE,
-		FilterType = IPX_FILTERTYPE,
-		StopFilterType = IPX_STOPFILTERPTYPE,
-		DSType = IPX_DSTYPE,
-		Extended_Address = IPX_EXTENDED_ADDRESS,
-		RecvHDR = IPX_RECVHDR,
-		RCVBroadcast = IPX_RECEIVE_BROADCAST,
-		ImmeditatesPXACK = IPX_IMMEDIATESPXACK
+#ifdef SO_UPDATE_ACCEPT_CONTEXT
+		SO_UPDATE_ACCEPT_CONTEXT,
 #endif
-	} SocketOption;
+		PVD_CONFIG
+	};
+
+	static int SocketOptionList2[0x10] = {
+		TCP_NODELAY, 
+	};
+
+#ifdef NSPROTO_IPX
+	static int SocketOptionList3[0x10] = {
+		IPX_PTYPE, 
+		IPX_FILTERTYPE, 
+		IPX_STOPFILTERPTYPE, 
+		IPX_DSTYPE, 
+		IPX_EXTENDED_ADDRESS, 
+		IPX_RECVHDR, 
+		IPX_RECEIVE_BROADCAST, 
+		IPX_IMMEDIATESPXACK, 
+	};
+#endif
 
 	class SocketConfig {
 	private:
@@ -102,10 +148,32 @@ namespace Tribal {
 			return m_pInstance;
 		}
 
+		/* Old Version */
 		SocketConfig* RegisterOption(SOCKET sock, uint32 level, uint32 opt, void* value, uint32 len) {
 			m_sock.push_back(sock);
 			m_level.push_back(level);
 			m_option.push_back(opt);
+			m_value.push_back((const char*)value);
+			m_len.push_back(len);
+
+			return this;
+		}
+
+		/* New Version */
+#define level_offset(x) (x / SOCKOPTMASK)
+#define option_offset(x) (x % SOCKOPTMASK)
+		SocketConfig* RegisterOption(SOCKET sock, uint32 opt, void* value, uint32 len) {
+			uint32 level = SocketLevelList[level_offset(opt)];
+
+			if (level == SOL_SOCKET) m_option.push_back(SocketOptionList1[option_offset(opt)]);
+			else if(level == IPPROTO_TCP) m_option.push_back(SocketOptionList2[option_offset(opt)]);
+#ifdef NSPROTO_IPX
+			else if (level == NSPROTO_IPX) m_option.push_back(SocketOptionList3[option_offset(opt)]);
+#endif
+			else return this;
+
+			m_sock.push_back(sock);
+			m_level.push_back(level);
 			m_value.push_back((const char*)value);
 			m_len.push_back(len);
 
@@ -203,7 +271,7 @@ namespace Tribal {
 	public:
 		virtual ~Socket() {}
 
-		/* Repack SocketConfig's RegisterOption() */
+		/* Repack SocketConfig's RegisterOption() Old Version */
 		Socket* SetOption(uint32 level, uint32 opt, void* value = null, uint32 len = 0) {
 			if ((value == null && len != 0) && (value != null && len == 0)){
 				fprintf(stderr, "[-] SetOption error, Please check value and len.\n");
@@ -215,6 +283,21 @@ namespace Tribal {
 			if(m_sockconfig) m_sockconfig->RegisterOption(m_sock, level, opt, value, len);
 			else fprintf(stderr, "[-] It has been already commited.\n");
 			
+			return this;
+		}
+
+		/* Repack SocketConfig's RegisterOption() New Version */
+		Socket* SetOption(SocketOption opt, void* value = null, uint32 len = 0) {
+			if ((value == null && len != 0) && (value != null && len == 0)) {
+				fprintf(stderr, "[-] SetOption error, Please check value and len.\n");
+
+				return this;
+			}
+
+			/* should fetch the return value. */
+			if (m_sockconfig) m_sockconfig->RegisterOption(m_sock, opt, value, len);
+			else fprintf(stderr, "[-] It has been already commited.\n");
+
 			return this;
 		}
 	};

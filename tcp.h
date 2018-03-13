@@ -258,16 +258,10 @@ namespace Tribal {
 		}
 		~TCPClient() {}
 
-#ifdef _DEBUG
-		void Testing() override {
-			cout << "[+] It is TCPClient..." << endl;
-		}
-#endif
-
 		/*
-		execute Socket API function(connect()).
-		This function require target's IP Address and Port Address with own socket for connect.
-		*/
+		    execute Socket API function(connect()).
+		    This function require target's IP Address and Port Address with own socket for connect.
+		 */
 		void Operate() override {
 			uint32 result = 0;
 
@@ -276,8 +270,21 @@ namespace Tribal {
 #else
 			result = WSAConnect(m_sock, (sockaddr*)&m_sa, sizeof(sockaddr_in), NULL, NULL, NULL, NULL);
 #endif
-			if (result == -1) return;
+			if (result == -1) {
+				int error = WSAGetLastError();
+
+				fprintf(stderr, "[-] failed WSAConnect()\n");
+				fprintf(stderr, "[-] %d\n", error);
+
+				return;
+			}
 		}
+
+#ifdef _DEBUG
+		void Testing() override {
+			cout << "[+] It is TCPClient..." << endl;
+		}
+#endif
 	};
 }
 

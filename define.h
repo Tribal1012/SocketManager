@@ -1,5 +1,8 @@
 #pragma once
 
+#define MAKER "Tribal"
+#define VERSION "0.0"
+
 #define null NULL
 
 #define CLIENTCONNECT 1
